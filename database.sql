@@ -1,200 +1,259 @@
--- MySQL dump 10.13  Distrib 8.0.30, for Win64 (x86_64)
+-- phpMyAdmin SQL Dump
+-- version 5.2.0
+-- https://www.phpmyadmin.net/
 --
--- Host: localhost    Database: SOG
--- ------------------------------------------------------
--- Server version	8.0.30
+-- Хост: 127.0.0.1:3306
+-- Время создания: Июн 05 2026 г., 17:24
+-- Версия сервера: 8.0.30
+-- Версия PHP: 7.2.34
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+/*!40101 SET NAMES utf8mb4 */;
 
 --
--- Table structure for table `Nagrazhdenie`
+-- База данных: `SportInfrastruktura`
 --
 
-DROP TABLE IF EXISTS `Nagrazhdenie`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+DELIMITER $$
+--
+-- Процедуры
+--
+CREATE DEFINER=`root`@`%` PROCEDURE `CompetitionSchedule` ()   BEGIN
+    SELECT
+        s.Nazvanie AS 'Соревнование',
+        v.Nazvanie AS 'Вид спорта',
+        o.FIO AS 'Организатор',
+        s.Data_provedeniya AS 'Дата'
+    FROM Sostyazaniya s
+    LEFT JOIN Vidy_sporta v
+        ON s.Vid_sporta_ID = v.ID
+    LEFT JOIN Organizatory_sorevnovaniy o
+        ON s.ID_Organizatory_sorevnovaniy =
+           o.ID_organizatora_sorevnovaniy
+    ORDER BY s.Data_provedeniya;
+END$$
+
+CREATE DEFINER=`root`@`%` PROCEDURE `GetAllClubStats` ()   BEGIN
+    SELECT
+        k.Nazvanie AS 'Клуб',
+        COUNT(s.ID) AS 'Количество спортсменов'
+    FROM Sportivnye_kluby k
+    LEFT JOIN Sportsmeny s
+        ON k.ID_sportivnogo_kluba =
+           s.ID_sportivnogo_kluba
+    GROUP BY
+        k.ID_sportivnogo_kluba,
+        k.Nazvanie
+    ORDER BY COUNT(s.ID) DESC;
+END$$
+
+CREATE DEFINER=`root`@`%` PROCEDURE `GetClubStatistics` (IN `club_name` VARCHAR(100))   BEGIN
+    SELECT
+        k.Nazvanie AS 'Клуб',
+        COUNT(s.ID) AS 'Количество спортсменов',
+        SUM(CASE WHEN s.Pol='muzhskoy' THEN 1 ELSE 0 END)
+            AS 'Мужчин',
+        SUM(CASE WHEN s.Pol='zhenskiy' THEN 1 ELSE 0 END)
+            AS 'Женщин'
+    FROM Sportivnye_kluby k
+    LEFT JOIN Sportsmeny s
+        ON k.ID_sportivnogo_kluba =
+           s.ID_sportivnogo_kluba
+    WHERE k.Nazvanie = club_name
+    GROUP BY
+        k.ID_sportivnogo_kluba,
+        k.Nazvanie;
+END$$
+
+CREATE DEFINER=`root`@`%` PROCEDURE `GetCompetitionWinners` (IN `competition_name` VARCHAR(100))   BEGIN
+    SELECT
+        sp.FIO AS 'Спортсмен',
+        r.Mesto AS 'Место'
+    FROM Rezultaty_uchastiya r
+    JOIN Sportsmeny sp
+        ON r.ID_sportsmena = sp.ID
+    JOIN Sostyazaniya s
+        ON r.ID_sostyazaniya = s.ID
+    WHERE s.Nazvanie = competition_name
+      AND r.Mesto <= 3
+    ORDER BY r.Mesto;
+END$$
+
+CREATE DEFINER=`root`@`%` PROCEDURE `GetSportsmenBySport` (IN `sport_name` VARCHAR(100))   BEGIN
+    SELECT DISTINCT
+        sp.FIO AS 'Спортсмен',
+        sp.Razryad AS 'Разряд',
+        k.Nazvanie AS 'Клуб'
+    FROM Sportsmeny sp
+    JOIN Rezultaty_uchastiya r
+        ON sp.ID = r.ID_sportsmena
+    JOIN Sostyazaniya s
+        ON r.ID_sostyazaniya = s.ID
+    JOIN Vidy_sporta v
+        ON s.Vid_sporta_ID = v.ID
+    LEFT JOIN Sportivnye_kluby k
+        ON sp.ID_sportivnogo_kluba =
+           k.ID_sportivnogo_kluba
+    WHERE v.Nazvanie = sport_name
+    ORDER BY sp.FIO;
+END$$
+
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Структура таблицы `Nagrazhdenie`
+--
+
 CREATE TABLE `Nagrazhdenie` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `ID_rezultata` int DEFAULT NULL,
-  `Nazvanie_nagrady` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `ID_rezultata` (`ID_rezultata`),
-  CONSTRAINT `nagrazhdenie_ibfk_1` FOREIGN KEY (`ID_rezultata`) REFERENCES `Rezultaty_uchastiya` (`ID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Nazvanie_nagrady` varchar(50) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Nagrazhdenie`
+-- Дамп данных таблицы `Nagrazhdenie`
 --
 
-LOCK TABLES `Nagrazhdenie` WRITE;
-/*!40000 ALTER TABLE `Nagrazhdenie` DISABLE KEYS */;
-INSERT INTO `Nagrazhdenie` VALUES (1,1,'Золотая медаль'),(2,3,'Золотая медаль'),(3,6,'Золотая медаль'),(4,7,'Золотая медаль'),(5,9,'Золотая медаль');
-/*!40000 ALTER TABLE `Nagrazhdenie` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Nagrazhdenie` (`ID`, `ID_rezultata`, `Nazvanie_nagrady`) VALUES
+(1, 1, 'Золотая медаль'),
+(2, 3, 'Золотая медаль'),
+(3, 6, 'Золотая медаль'),
+(4, 7, 'Золотая медаль'),
+(6, 11, 'Золотая медаль');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Organizatory_sorevnovaniy`
+-- Структура таблицы `Organizatory_sorevnovaniy`
 --
 
-DROP TABLE IF EXISTS `Organizatory_sorevnovaniy`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Organizatory_sorevnovaniy` (
-  `ID_organizatora_sorevnovaniy` int NOT NULL AUTO_INCREMENT,
-  `FIO` varchar(100) NOT NULL,
-  PRIMARY KEY (`ID_organizatora_sorevnovaniy`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `ID_organizatora_sorevnovaniy` int NOT NULL,
+  `FIO` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Organizatory_sorevnovaniy`
+-- Дамп данных таблицы `Organizatory_sorevnovaniy`
 --
 
-LOCK TABLES `Organizatory_sorevnovaniy` WRITE;
-/*!40000 ALTER TABLE `Organizatory_sorevnovaniy` DISABLE KEYS */;
-INSERT INTO `Organizatory_sorevnovaniy` VALUES (1,'Иванова Наталья'),(2,'Громов Алексей');
-/*!40000 ALTER TABLE `Organizatory_sorevnovaniy` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Organizatory_sorevnovaniy` (`ID_organizatora_sorevnovaniy`, `FIO`) VALUES
+(1, 'Иванова Наталья'),
+(2, 'Громов Алексей');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Rezultaty_uchastiya`
+-- Структура таблицы `Rezultaty_uchastiya`
 --
 
-DROP TABLE IF EXISTS `Rezultaty_uchastiya`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Rezultaty_uchastiya` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `ID_sostyazaniya` int DEFAULT NULL,
   `ID_sportsmena` int DEFAULT NULL,
-  `Mesto` int DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `ID_sostyazaniya` (`ID_sostyazaniya`),
-  KEY `ID_sportsmena` (`ID_sportsmena`),
-  CONSTRAINT `rezultaty_uchastiya_ibfk_1` FOREIGN KEY (`ID_sostyazaniya`) REFERENCES `Sostyazaniya` (`ID`) ON DELETE CASCADE,
-  CONSTRAINT `rezultaty_uchastiya_ibfk_2` FOREIGN KEY (`ID_sportsmena`) REFERENCES `Sportsmeny` (`ID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Mesto` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Rezultaty_uchastiya`
+-- Дамп данных таблицы `Rezultaty_uchastiya`
 --
 
-LOCK TABLES `Rezultaty_uchastiya` WRITE;
-/*!40000 ALTER TABLE `Rezultaty_uchastiya` DISABLE KEYS */;
-INSERT INTO `Rezultaty_uchastiya` VALUES (1,1,1,1),(2,1,2,2),(3,2,6,1),(4,2,7,3),(5,3,3,2),(6,3,9,1),(7,4,4,1),(8,4,10,2),(9,5,8,1),(10,5,5,3);
-/*!40000 ALTER TABLE `Rezultaty_uchastiya` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_auto_nagrada` AFTER INSERT ON `rezultaty_uchastiya` FOR EACH ROW BEGIN
-    IF NEW.Mesto=1 THEN
-        INSERT INTO Nagrazhdenie(ID_rezultata,Nazvanie_nagrady)
-        VALUES(NEW.ID,'Золотая медаль');
-    END IF;
-END */;;
+INSERT INTO `Rezultaty_uchastiya` (`ID`, `ID_sostyazaniya`, `ID_sportsmena`, `Mesto`) VALUES
+(1, 1, 1, 1),
+(2, 1, 2, 2),
+(3, 2, 6, 1),
+(4, 2, 7, 3),
+(5, 3, 3, 2),
+(6, 3, 9, 1),
+(7, 4, 4, 1),
+(8, 4, 10, 2),
+(11, 1, 2, 1);
+
+--
+-- Триггеры `Rezultaty_uchastiya`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_auto_nagrada` AFTER INSERT ON `Rezultaty_uchastiya` FOR EACH ROW BEGIN
+
+    IF NEW.Mesto=1 THEN
+
+        INSERT INTO Nagrazhdenie(ID_rezultata,Nazvanie_nagrady)
+
+        VALUES(NEW.ID,'Золотая медаль');
+
+    END IF;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_upgrade_razryad` AFTER INSERT ON `rezultaty_uchastiya` FOR EACH ROW BEGIN
-    IF NEW.Mesto=1 THEN
-        UPDATE Sportsmeny SET Razryad='МС'
-        WHERE ID=NEW.ID_sportsmena;
-    END IF;
-END */;;
+DELIMITER $$
+CREATE TRIGGER `trg_upgrade_razryad` AFTER INSERT ON `Rezultaty_uchastiya` FOR EACH ROW BEGIN
+
+    IF NEW.Mesto=1 THEN
+
+        UPDATE Sportsmeny SET Razryad='МС'
+
+        WHERE ID=NEW.ID_sportsmena;
+
+    END IF;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sostyazaniya`
+-- Структура таблицы `Sostyazaniya`
 --
 
-DROP TABLE IF EXISTS `Sostyazaniya`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sostyazaniya` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `Nazvanie` varchar(100) NOT NULL,
   `Vid_sporta_ID` int DEFAULT NULL,
   `Sportivnoe_sooruzhenie_ID` int DEFAULT NULL,
   `ID_Organizatory_sorevnovaniy` int DEFAULT NULL,
-  `Data_provedeniya` date DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `Vid_sporta_ID` (`Vid_sporta_ID`),
-  KEY `Sportivnoe_sooruzhenie_ID` (`Sportivnoe_sooruzhenie_ID`),
-  KEY `ID_Organizatory_sorevnovaniy` (`ID_Organizatory_sorevnovaniy`),
-  CONSTRAINT `sostyazaniya_ibfk_1` FOREIGN KEY (`Vid_sporta_ID`) REFERENCES `Vidy_sporta` (`ID`),
-  CONSTRAINT `sostyazaniya_ibfk_2` FOREIGN KEY (`Sportivnoe_sooruzhenie_ID`) REFERENCES `Sportivnoe_sooruzhenie` (`ID`),
-  CONSTRAINT `sostyazaniya_ibfk_3` FOREIGN KEY (`ID_Organizatory_sorevnovaniy`) REFERENCES `Organizatory_sorevnovaniy` (`ID_organizatora_sorevnovaniy`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Data_provedeniya` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Sostyazaniya`
+-- Дамп данных таблицы `Sostyazaniya`
 --
 
-LOCK TABLES `Sostyazaniya` WRITE;
-/*!40000 ALTER TABLE `Sostyazaniya` DISABLE KEYS */;
-INSERT INTO `Sostyazaniya` VALUES (1,'Кубок города по футболу',1,1,1,'2025-04-01'),(2,'Открытый турнир по теннису',2,2,2,'2025-04-10'),(3,'Чемпионат по легкой атлетике',3,3,1,'2025-04-15'),(4,'Баскетбольная лига',4,4,2,'2025-04-20'),(5,'Первенство по плаванию',5,5,1,'2025-04-25');
-/*!40000 ALTER TABLE `Sostyazaniya` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_backup_sostyazanie` BEFORE DELETE ON `sostyazaniya` FOR EACH ROW BEGIN
-    INSERT INTO Sostyazaniya_backup
-    SELECT * FROM Sostyazaniya WHERE ID=OLD.ID;
-END */;;
+INSERT INTO `Sostyazaniya` (`ID`, `Nazvanie`, `Vid_sporta_ID`, `Sportivnoe_sooruzhenie_ID`, `ID_Organizatory_sorevnovaniy`, `Data_provedeniya`) VALUES
+(1, 'Кубок города по футболу', 1, 1, 1, '2025-04-01'),
+(2, 'Открытый турнир по теннису', 2, 2, 2, '2025-04-10'),
+(3, 'Чемпионат по легкой атлетике', 3, 3, 1, '2025-04-15'),
+(4, 'Баскетбольная лига', 4, 4, 2, '2025-04-20');
+
+--
+-- Триггеры `Sostyazaniya`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_backup_sostyazanie` BEFORE DELETE ON `Sostyazaniya` FOR EACH ROW BEGIN
+
+    INSERT INTO Sostyazaniya_backup
+
+    SELECT * FROM Sostyazaniya WHERE ID=OLD.ID;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sostyazaniya_backup`
+-- Структура таблицы `Sostyazaniya_backup`
 --
 
-DROP TABLE IF EXISTS `Sostyazaniya_backup`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sostyazaniya_backup` (
   `ID` int NOT NULL DEFAULT '0',
   `Nazvanie` varchar(100) NOT NULL,
@@ -203,468 +262,598 @@ CREATE TABLE `Sostyazaniya_backup` (
   `ID_Organizatory_sorevnovaniy` int DEFAULT NULL,
   `Data_provedeniya` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `Sostyazaniya_backup`
+-- Дамп данных таблицы `Sostyazaniya_backup`
 --
 
-LOCK TABLES `Sostyazaniya_backup` WRITE;
-/*!40000 ALTER TABLE `Sostyazaniya_backup` DISABLE KEYS */;
-/*!40000 ALTER TABLE `Sostyazaniya_backup` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Sostyazaniya_backup` (`ID`, `Nazvanie`, `Vid_sporta_ID`, `Sportivnoe_sooruzhenie_ID`, `ID_Organizatory_sorevnovaniy`, `Data_provedeniya`) VALUES
+(5, 'Первенство по плаванию', 5, 5, 1, '2025-04-25');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sportivnoe_sooruzhenie`
+-- Структура таблицы `Sportivnoe_sooruzhenie`
 --
 
-DROP TABLE IF EXISTS `Sportivnoe_sooruzhenie`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sportivnoe_sooruzhenie` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `Nazvanie` varchar(100) NOT NULL,
   `Tip_ID` int DEFAULT NULL,
   `Vmestimost` int DEFAULT NULL,
   `Tip_pokrytiya` varchar(50) DEFAULT NULL,
   `Ploshad` float DEFAULT NULL,
-  `Adres` varchar(150) DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `Tip_ID` (`Tip_ID`),
-  CONSTRAINT `sportivnoe_sooruzhenie_ibfk_1` FOREIGN KEY (`Tip_ID`) REFERENCES `Tip_sooruzheniya` (`ID`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Adres` varchar(150) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Sportivnoe_sooruzhenie`
+-- Дамп данных таблицы `Sportivnoe_sooruzhenie`
 --
 
-LOCK TABLES `Sportivnoe_sooruzhenie` WRITE;
-/*!40000 ALTER TABLE `Sportivnoe_sooruzhenie` DISABLE KEYS */;
-INSERT INTO `Sportivnoe_sooruzhenie` VALUES (1,'Центральный стадион',1,20000,NULL,15000,'ул. Ленина 1'),(2,'Теннисный корт №1',2,NULL,'Грунт',500,'ул. Спортивная 5'),(3,'Легкоатлетический манеж',3,1000,NULL,3000,'пр. Мира 10'),(4,'Баскетбольный зал',4,800,NULL,1200,'ул. Гагарина 12'),(5,'Городской бассейн',5,600,NULL,2000,'ул. Победы 7');
-/*!40000 ALTER TABLE `Sportivnoe_sooruzhenie` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_check_sooruzhenie` BEFORE INSERT ON `sportivnoe_sooruzhenie` FOR EACH ROW BEGIN
-    IF NEW.Vmestimost IS NULL AND NEW.Tip_ID = 1 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT='Для стадиона обязательна вместимость';
-    END IF;
-END */;;
+INSERT INTO `Sportivnoe_sooruzhenie` (`ID`, `Nazvanie`, `Tip_ID`, `Vmestimost`, `Tip_pokrytiya`, `Ploshad`, `Adres`) VALUES
+(1, 'Центральный стадион', 1, 20000, NULL, 15000, 'ул. Ленина 1'),
+(2, 'Теннисный корт №1', 2, NULL, 'Грунт', 500, 'ул. Спортивная 5'),
+(3, 'Легкоатлетический манеж', 3, 1000, NULL, 3000, 'пр. Мира 10'),
+(4, 'Баскетбольный зал', 4, 800, NULL, 1200, 'ул. Гагарина 12'),
+(5, 'Городской бассейн', 5, 600, NULL, 2000, 'ул. Победы 7');
+
+--
+-- Триггеры `Sportivnoe_sooruzhenie`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_check_sooruzhenie` BEFORE INSERT ON `Sportivnoe_sooruzhenie` FOR EACH ROW BEGIN
+
+    IF NEW.Vmestimost IS NULL AND NEW.Tip_ID = 1 THEN
+
+        SIGNAL SQLSTATE '45000'
+
+        SET MESSAGE_TEXT='Для стадиона обязательна вместимость';
+
+    END IF;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sportivnye_kluby`
+-- Структура таблицы `Sportivnye_kluby`
 --
 
-DROP TABLE IF EXISTS `Sportivnye_kluby`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sportivnye_kluby` (
-  `ID_sportivnogo_kluba` int NOT NULL AUTO_INCREMENT,
-  `Nazvanie` varchar(50) NOT NULL,
-  PRIMARY KEY (`ID_sportivnogo_kluba`),
-  UNIQUE KEY `Nazvanie` (`Nazvanie`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `ID_sportivnogo_kluba` int NOT NULL,
+  `Nazvanie` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Sportivnye_kluby`
+-- Дамп данных таблицы `Sportivnye_kluby`
 --
 
-LOCK TABLES `Sportivnye_kluby` WRITE;
-/*!40000 ALTER TABLE `Sportivnye_kluby` DISABLE KEYS */;
-INSERT INTO `Sportivnye_kluby` VALUES (1,'Динамо'),(3,'Олимп'),(2,'Спартак'),(4,'Юность');
-/*!40000 ALTER TABLE `Sportivnye_kluby` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Sportivnye_kluby` (`ID_sportivnogo_kluba`, `Nazvanie`) VALUES
+(1, 'Динамо'),
+(3, 'Олимп'),
+(2, 'Спартак'),
+(4, 'Юность');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sportsmeny`
+-- Структура таблицы `Sportsmeny`
 --
 
-DROP TABLE IF EXISTS `Sportsmeny`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sportsmeny` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `FIO` varchar(100) NOT NULL,
   `Razryad` varchar(50) DEFAULT NULL,
   `Pol` enum('muzhskoy','zhenskiy') DEFAULT NULL,
-  `ID_sportivnogo_kluba` int DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `ID_sportivnogo_kluba` (`ID_sportivnogo_kluba`),
-  CONSTRAINT `sportsmeny_ibfk_1` FOREIGN KEY (`ID_sportivnogo_kluba`) REFERENCES `Sportivnye_kluby` (`ID_sportivnogo_kluba`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `ID_sportivnogo_kluba` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Sportsmeny`
+-- Дамп данных таблицы `Sportsmeny`
 --
 
-LOCK TABLES `Sportsmeny` WRITE;
-/*!40000 ALTER TABLE `Sportsmeny` DISABLE KEYS */;
-INSERT INTO `Sportsmeny` VALUES (1,'Иванов Иван','МС','muzhskoy',1),(2,'Петров Петр','1 разряд','muzhskoy',2),(3,'Сидоров Алексей','2 разряд','muzhskoy',3),(4,'Кузнецов Дмитрий','МС','muzhskoy',1),(5,'Смирнов Андрей','3 разряд','muzhskoy',4),(6,'Попова Анна','МС','zhenskiy',2),(7,'Козлова Мария','КМС','zhenskiy',3),(8,'Морозова Елена','МС','zhenskiy',1),(9,'Волков Сергей','МС','muzhskoy',4),(10,'Соколова Дарья','3 разряд','zhenskiy',2);
-/*!40000 ALTER TABLE `Sportsmeny` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_log_razryad` AFTER UPDATE ON `sportsmeny` FOR EACH ROW BEGIN
-    IF OLD.Razryad<>NEW.Razryad THEN
-        INSERT INTO Sportsmeny_log(ID_sportsmena,Old_Razryad,New_Razryad,Action_type)
-        VALUES(OLD.ID,OLD.Razryad,NEW.Razryad,'UPDATE');
-    END IF;
-END */;;
+INSERT INTO `Sportsmeny` (`ID`, `FIO`, `Razryad`, `Pol`, `ID_sportivnogo_kluba`) VALUES
+(1, 'Иванов Иван', 'МС', 'muzhskoy', 1),
+(2, 'Петров Петр', 'МС', 'muzhskoy', 2),
+(3, 'Сидоров Алексей', 'КМС', 'muzhskoy', 3),
+(4, 'Кузнецов Дмитрий', 'МС', 'muzhskoy', 1),
+(5, 'Смирнов Андрей', '3 разряд', 'muzhskoy', 4),
+(6, 'Попова Анна', 'МС', 'zhenskiy', 2),
+(7, 'Козлова Мария', 'КМС', 'zhenskiy', 3),
+(8, 'Морозова Елена', 'МС', 'zhenskiy', 1),
+(9, 'Волков Сергей', 'МС', 'muzhskoy', 4),
+(10, 'Соколова Дарья', '3 разряд', 'zhenskiy', 2);
+
+--
+-- Триггеры `Sportsmeny`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_log_razryad` AFTER UPDATE ON `Sportsmeny` FOR EACH ROW BEGIN
+
+    IF OLD.Razryad<>NEW.Razryad THEN
+
+        INSERT INTO Sportsmeny_log(ID_sportsmena,Old_Razryad,New_Razryad,Action_type)
+
+        VALUES(OLD.ID,OLD.Razryad,NEW.Razryad,'UPDATE');
+
+    END IF;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Sportsmeny_log`
+-- Структура таблицы `Sportsmeny_log`
 --
 
-DROP TABLE IF EXISTS `Sportsmeny_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Sportsmeny_log` (
-  `ID_log` int NOT NULL AUTO_INCREMENT,
+  `ID_log` int NOT NULL,
   `ID_sportsmena` int DEFAULT NULL,
   `Old_Razryad` varchar(50) DEFAULT NULL,
   `New_Razryad` varchar(50) DEFAULT NULL,
   `Action_type` varchar(20) DEFAULT NULL,
-  `Log_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`ID_log`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Log_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Sportsmeny_log`
+-- Дамп данных таблицы `Sportsmeny_log`
 --
 
-LOCK TABLES `Sportsmeny_log` WRITE;
-/*!40000 ALTER TABLE `Sportsmeny_log` DISABLE KEYS */;
-INSERT INTO `Sportsmeny_log` VALUES (1,1,'КМС','МС','UPDATE','2026-02-11 11:54:28'),(2,6,'1 разряд','МС','UPDATE','2026-02-11 11:54:28'),(3,9,'1 разряд','МС','UPDATE','2026-02-11 11:54:28'),(4,4,'КМС','МС','UPDATE','2026-02-11 11:54:28'),(5,8,'2 разряд','МС','UPDATE','2026-02-11 11:54:28');
-/*!40000 ALTER TABLE `Sportsmeny_log` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Sportsmeny_log` (`ID_log`, `ID_sportsmena`, `Old_Razryad`, `New_Razryad`, `Action_type`, `Log_date`) VALUES
+(1, 1, 'КМС', 'МС', 'UPDATE', '2026-02-11 11:54:28'),
+(2, 6, '1 разряд', 'МС', 'UPDATE', '2026-02-11 11:54:28'),
+(3, 9, '1 разряд', 'МС', 'UPDATE', '2026-02-11 11:54:28'),
+(4, 4, 'КМС', 'МС', 'UPDATE', '2026-02-11 11:54:28'),
+(5, 8, '2 разряд', 'МС', 'UPDATE', '2026-02-11 11:54:28'),
+(6, 2, '1 разряд', 'МС', 'UPDATE', '2026-06-05 09:40:24'),
+(7, 3, '2 разряд', 'КМС', 'UPDATE', '2026-06-05 09:51:24');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Tip_sooruzheniya`
+-- Структура таблицы `Tip_sooruzheniya`
 --
 
-DROP TABLE IF EXISTS `Tip_sooruzheniya`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Tip_sooruzheniya` (
-  `ID` int NOT NULL AUTO_INCREMENT,
-  `Nazvanie` varchar(50) NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `Nazvanie` (`Nazvanie`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `ID` int NOT NULL,
+  `Nazvanie` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Tip_sooruzheniya`
+-- Дамп данных таблицы `Tip_sooruzheniya`
 --
 
-LOCK TABLES `Tip_sooruzheniya` WRITE;
-/*!40000 ALTER TABLE `Tip_sooruzheniya` DISABLE KEYS */;
-INSERT INTO `Tip_sooruzheniya` VALUES (5,'Бассейн'),(2,'Корт'),(3,'Манеж'),(4,'Спортивный зал'),(1,'Стадион');
-/*!40000 ALTER TABLE `Tip_sooruzheniya` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Tip_sooruzheniya` (`ID`, `Nazvanie`) VALUES
+(5, 'Бассейн'),
+(2, 'Корт'),
+(3, 'Манеж'),
+(4, 'Спортивный зал'),
+(1, 'Стадион');
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Trenery`
+-- Структура таблицы `Trenery`
 --
 
-DROP TABLE IF EXISTS `Trenery`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Trenery` (
-  `ID` int NOT NULL AUTO_INCREMENT,
+  `ID` int NOT NULL,
   `FIO` varchar(100) NOT NULL,
-  `Vid_sporta_ID` int DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `Vid_sporta_ID` (`Vid_sporta_ID`),
-  CONSTRAINT `trenery_ibfk_1` FOREIGN KEY (`Vid_sporta_ID`) REFERENCES `Vidy_sporta` (`ID`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Vid_sporta_ID` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Trenery`
+-- Дамп данных таблицы `Trenery`
 --
 
-LOCK TABLES `Trenery` WRITE;
-/*!40000 ALTER TABLE `Trenery` DISABLE KEYS */;
-INSERT INTO `Trenery` VALUES (1,'Орлов Сергей',1),(2,'Тихонов Павел',2),(3,'Зайцев Игорь',3),(4,'Лебедев Максим',4),(5,'Крылова Ольга',5);
-/*!40000 ALTER TABLE `Trenery` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Trenery` (`ID`, `FIO`, `Vid_sporta_ID`) VALUES
+(1, 'Орлов Сергей', 1),
+(2, 'Тихонов Павел', 2),
+(3, 'Зайцев Игорь', 3),
+(4, 'Лебедев Максим', 4),
+(5, 'Крылова Ольга', 5);
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Trenirovki`
+-- Структура таблицы `Trenirovki`
 --
 
-DROP TABLE IF EXISTS `Trenirovki`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Trenirovki` (
-  `ID_trenirovki` int NOT NULL AUTO_INCREMENT,
+  `ID_trenirovki` int NOT NULL,
   `ID_trenera` int DEFAULT NULL,
   `ID_sportsmena` int DEFAULT NULL,
   `ID_vida_sporta` int DEFAULT NULL,
-  `Data_nachala` date DEFAULT NULL,
-  PRIMARY KEY (`ID_trenirovki`),
-  KEY `ID_trenera` (`ID_trenera`),
-  KEY `ID_sportsmena` (`ID_sportsmena`),
-  KEY `ID_vida_sporta` (`ID_vida_sporta`),
-  CONSTRAINT `trenirovki_ibfk_1` FOREIGN KEY (`ID_trenera`) REFERENCES `Trenery` (`ID`) ON DELETE CASCADE,
-  CONSTRAINT `trenirovki_ibfk_2` FOREIGN KEY (`ID_sportsmena`) REFERENCES `Sportsmeny` (`ID`) ON DELETE CASCADE,
-  CONSTRAINT `trenirovki_ibfk_3` FOREIGN KEY (`ID_vida_sporta`) REFERENCES `Vidy_sporta` (`ID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `Data_nachala` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Trenirovki`
+-- Дамп данных таблицы `Trenirovki`
 --
 
-LOCK TABLES `Trenirovki` WRITE;
-/*!40000 ALTER TABLE `Trenirovki` DISABLE KEYS */;
-INSERT INTO `Trenirovki` VALUES (1,1,1,1,'2025-01-10'),(2,1,2,1,'2025-01-12'),(3,2,6,2,'2025-02-01'),(4,2,7,2,'2025-02-03'),(5,3,3,3,'2025-03-01'),(6,4,4,4,'2025-03-05'),(7,5,8,5,'2025-03-10'),(8,3,9,3,'2025-03-12'),(9,4,10,4,'2025-03-15'),(10,5,5,5,'2025-03-20');
-/*!40000 ALTER TABLE `Trenirovki` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER `trg_check_trener` BEFORE INSERT ON `trenirovki` FOR EACH ROW BEGIN
-    DECLARE v INT;
-    SELECT Vid_sporta_ID INTO v FROM Trenery WHERE ID=NEW.ID_trenera;
-    IF v <> NEW.ID_vida_sporta THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT='Тренер не ведет этот вид спорта';
-    END IF;
-END */;;
+INSERT INTO `Trenirovki` (`ID_trenirovki`, `ID_trenera`, `ID_sportsmena`, `ID_vida_sporta`, `Data_nachala`) VALUES
+(1, 1, 1, 1, '2025-01-10'),
+(2, 1, 2, 1, '2025-01-12'),
+(3, 2, 6, 2, '2025-02-01'),
+(4, 2, 7, 2, '2025-02-03'),
+(5, 3, 3, 3, '2025-03-01'),
+(6, 4, 4, 4, '2025-03-05'),
+(7, 5, 8, 5, '2025-03-10'),
+(8, 3, 9, 3, '2025-03-12'),
+(9, 4, 10, 4, '2025-03-15'),
+(10, 5, 5, 5, '2025-03-20');
+
+--
+-- Триггеры `Trenirovki`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_check_trener` BEFORE INSERT ON `Trenirovki` FOR EACH ROW BEGIN
+
+    DECLARE v INT;
+
+    SELECT Vid_sporta_ID INTO v FROM Trenery WHERE ID=NEW.ID_trenera;
+
+    IF v <> NEW.ID_vida_sporta THEN
+
+        SIGNAL SQLSTATE '45000'
+
+        SET MESSAGE_TEXT='Тренер не ведет этот вид спорта';
+
+    END IF;
+
+END
+$$
 DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+-- --------------------------------------------------------
 
 --
--- Table structure for table `Vidy_sporta`
+-- Структура таблицы `Vidy_sporta`
 --
 
-DROP TABLE IF EXISTS `Vidy_sporta`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Vidy_sporta` (
-  `ID` int NOT NULL AUTO_INCREMENT,
-  `Nazvanie` varchar(50) NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `Nazvanie` (`Nazvanie`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  `ID` int NOT NULL,
+  `Nazvanie` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `Vidy_sporta`
+-- Дамп данных таблицы `Vidy_sporta`
 --
 
-LOCK TABLES `Vidy_sporta` WRITE;
-/*!40000 ALTER TABLE `Vidy_sporta` DISABLE KEYS */;
-INSERT INTO `Vidy_sporta` VALUES (4,'Баскетбол'),(3,'Легкая атлетика'),(5,'Плавание'),(2,'Теннис'),(1,'Футбол');
-/*!40000 ALTER TABLE `Vidy_sporta` ENABLE KEYS */;
-UNLOCK TABLES;
+INSERT INTO `Vidy_sporta` (`ID`, `Nazvanie`) VALUES
+(4, 'Баскетбол'),
+(3, 'Легкая атлетика'),
+(5, 'Плавание'),
+(2, 'Теннис'),
+(1, 'Футбол');
+
+-- --------------------------------------------------------
 
 --
--- Temporary view structure for view `view_prizery`
+-- Дублирующая структура для представления `view_prizery`
+-- (См. Ниже фактическое представление)
 --
+CREATE TABLE `view_prizery` (
+`FIO` varchar(100)
+,`Mesto` int
+,`Nazvanie_nagrady` varchar(50)
+);
 
+-- --------------------------------------------------------
+
+--
+-- Дублирующая структура для представления `view_sooruzheniya`
+-- (См. Ниже фактическое представление)
+--
+CREATE TABLE `view_sooruzheniya` (
+`Nazvanie` varchar(100)
+,`Tip` varchar(50)
+,`Vmestimost` int
+,`Tip_pokrytiya` varchar(50)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Дублирующая структура для представления `view_sorevnovaniya_period`
+-- (См. Ниже фактическое представление)
+--
+CREATE TABLE `view_sorevnovaniya_period` (
+`Nazvanie` varchar(100)
+,`Data_provedeniya` date
+);
+
+-- --------------------------------------------------------
+
+--
+-- Дублирующая структура для представления `view_sportsmeny_vid`
+-- (См. Ниже фактическое представление)
+--
+CREATE TABLE `view_sportsmeny_vid` (
+`FIO` varchar(100)
+,`Razryad` varchar(50)
+,`Vid_sporta` varchar(50)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Дублирующая структура для представления `view_trenery_po_vidu`
+-- (См. Ниже фактическое представление)
+--
+CREATE TABLE `view_trenery_po_vidu` (
+`FIO` varchar(100)
+,`Nazvanie` varchar(50)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Структура для представления `view_prizery`
+--
 DROP TABLE IF EXISTS `view_prizery`;
-/*!50001 DROP VIEW IF EXISTS `view_prizery`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `view_prizery` AS SELECT 
- 1 AS `FIO`,
- 1 AS `Mesto`,
- 1 AS `Nazvanie_nagrady`*/;
-SET character_set_client = @saved_cs_client;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `view_prizery`  AS SELECT `s`.`FIO` AS `FIO`, `r`.`Mesto` AS `Mesto`, `n`.`Nazvanie_nagrady` AS `Nazvanie_nagrady` FROM ((`rezultaty_uchastiya` `r` join `sportsmeny` `s` on((`r`.`ID_sportsmena` = `s`.`ID`))) left join `nagrazhdenie` `n` on((`r`.`ID` = `n`.`ID_rezultata`))) WHERE (`r`.`Mesto` <= 3)  ;
+
+-- --------------------------------------------------------
 
 --
--- Temporary view structure for view `view_sooruzheniya`
+-- Структура для представления `view_sooruzheniya`
 --
-
 DROP TABLE IF EXISTS `view_sooruzheniya`;
-/*!50001 DROP VIEW IF EXISTS `view_sooruzheniya`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `view_sooruzheniya` AS SELECT 
- 1 AS `Nazvanie`,
- 1 AS `Tip`,
- 1 AS `Vmestimost`,
- 1 AS `Tip_pokrytiya`*/;
-SET character_set_client = @saved_cs_client;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `view_sooruzheniya`  AS SELECT `ss`.`Nazvanie` AS `Nazvanie`, `ts`.`Nazvanie` AS `Tip`, `ss`.`Vmestimost` AS `Vmestimost`, `ss`.`Tip_pokrytiya` AS `Tip_pokrytiya` FROM (`sportivnoe_sooruzhenie` `ss` join `tip_sooruzheniya` `ts` on((`ss`.`Tip_ID` = `ts`.`ID`)))  ;
+
+-- --------------------------------------------------------
 
 --
--- Temporary view structure for view `view_sorevnovaniya_period`
+-- Структура для представления `view_sorevnovaniya_period`
 --
-
 DROP TABLE IF EXISTS `view_sorevnovaniya_period`;
-/*!50001 DROP VIEW IF EXISTS `view_sorevnovaniya_period`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `view_sorevnovaniya_period` AS SELECT 
- 1 AS `Nazvanie`,
- 1 AS `Data_provedeniya`*/;
-SET character_set_client = @saved_cs_client;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `view_sorevnovaniya_period`  AS SELECT `sostyazaniya`.`Nazvanie` AS `Nazvanie`, `sostyazaniya`.`Data_provedeniya` AS `Data_provedeniya` FROM `sostyazaniya``sostyazaniya`  ;
+
+-- --------------------------------------------------------
 
 --
--- Temporary view structure for view `view_sportsmeny_vid`
+-- Структура для представления `view_sportsmeny_vid`
 --
-
 DROP TABLE IF EXISTS `view_sportsmeny_vid`;
-/*!50001 DROP VIEW IF EXISTS `view_sportsmeny_vid`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `view_sportsmeny_vid` AS SELECT 
- 1 AS `FIO`,
- 1 AS `Razryad`,
- 1 AS `Vid_sporta`*/;
-SET character_set_client = @saved_cs_client;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `view_sportsmeny_vid`  AS SELECT `s`.`FIO` AS `FIO`, `s`.`Razryad` AS `Razryad`, `v`.`Nazvanie` AS `Vid_sporta` FROM ((`sportsmeny` `s` join `trenirovki` `t` on((`s`.`ID` = `t`.`ID_sportsmena`))) join `vidy_sporta` `v` on((`t`.`ID_vida_sporta` = `v`.`ID`)))  ;
+
+-- --------------------------------------------------------
 
 --
--- Temporary view structure for view `view_trenery_po_vidu`
+-- Структура для представления `view_trenery_po_vidu`
 --
-
 DROP TABLE IF EXISTS `view_trenery_po_vidu`;
-/*!50001 DROP VIEW IF EXISTS `view_trenery_po_vidu`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `view_trenery_po_vidu` AS SELECT 
- 1 AS `FIO`,
- 1 AS `Nazvanie`*/;
-SET character_set_client = @saved_cs_client;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `view_trenery_po_vidu`  AS SELECT `tr`.`FIO` AS `FIO`, `v`.`Nazvanie` AS `Nazvanie` FROM (`trenery` `tr` join `vidy_sporta` `v` on((`tr`.`Vid_sporta_ID` = `v`.`ID`)))  ;
 
 --
--- Final view structure for view `view_prizery`
+-- Индексы сохранённых таблиц
 --
 
-/*!50001 DROP VIEW IF EXISTS `view_prizery`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`%` SQL SECURITY DEFINER */
-/*!50001 VIEW `view_prizery` AS select `s`.`FIO` AS `FIO`,`r`.`Mesto` AS `Mesto`,`n`.`Nazvanie_nagrady` AS `Nazvanie_nagrady` from ((`rezultaty_uchastiya` `r` join `sportsmeny` `s` on((`r`.`ID_sportsmena` = `s`.`ID`))) left join `nagrazhdenie` `n` on((`r`.`ID` = `n`.`ID_rezultata`))) where (`r`.`Mesto` <= 3) */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
+--
+-- Индексы таблицы `Nagrazhdenie`
+--
+ALTER TABLE `Nagrazhdenie`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `ID_rezultata` (`ID_rezultata`);
 
 --
--- Final view structure for view `view_sooruzheniya`
+-- Индексы таблицы `Organizatory_sorevnovaniy`
 --
-
-/*!50001 DROP VIEW IF EXISTS `view_sooruzheniya`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`%` SQL SECURITY DEFINER */
-/*!50001 VIEW `view_sooruzheniya` AS select `ss`.`Nazvanie` AS `Nazvanie`,`ts`.`Nazvanie` AS `Tip`,`ss`.`Vmestimost` AS `Vmestimost`,`ss`.`Tip_pokrytiya` AS `Tip_pokrytiya` from (`sportivnoe_sooruzhenie` `ss` join `tip_sooruzheniya` `ts` on((`ss`.`Tip_ID` = `ts`.`ID`))) */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
+ALTER TABLE `Organizatory_sorevnovaniy`
+  ADD PRIMARY KEY (`ID_organizatora_sorevnovaniy`);
 
 --
--- Final view structure for view `view_sorevnovaniya_period`
+-- Индексы таблицы `Rezultaty_uchastiya`
 --
-
-/*!50001 DROP VIEW IF EXISTS `view_sorevnovaniya_period`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`%` SQL SECURITY DEFINER */
-/*!50001 VIEW `view_sorevnovaniya_period` AS select `sostyazaniya`.`Nazvanie` AS `Nazvanie`,`sostyazaniya`.`Data_provedeniya` AS `Data_provedeniya` from `sostyazaniya` */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
+ALTER TABLE `Rezultaty_uchastiya`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `ID_sostyazaniya` (`ID_sostyazaniya`),
+  ADD KEY `ID_sportsmena` (`ID_sportsmena`);
 
 --
--- Final view structure for view `view_sportsmeny_vid`
+-- Индексы таблицы `Sostyazaniya`
 --
-
-/*!50001 DROP VIEW IF EXISTS `view_sportsmeny_vid`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`%` SQL SECURITY DEFINER */
-/*!50001 VIEW `view_sportsmeny_vid` AS select `s`.`FIO` AS `FIO`,`s`.`Razryad` AS `Razryad`,`v`.`Nazvanie` AS `Vid_sporta` from ((`sportsmeny` `s` join `trenirovki` `t` on((`s`.`ID` = `t`.`ID_sportsmena`))) join `vidy_sporta` `v` on((`t`.`ID_vida_sporta` = `v`.`ID`))) */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
+ALTER TABLE `Sostyazaniya`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `Vid_sporta_ID` (`Vid_sporta_ID`),
+  ADD KEY `Sportivnoe_sooruzhenie_ID` (`Sportivnoe_sooruzhenie_ID`),
+  ADD KEY `ID_Organizatory_sorevnovaniy` (`ID_Organizatory_sorevnovaniy`);
 
 --
--- Final view structure for view `view_trenery_po_vidu`
+-- Индексы таблицы `Sportivnoe_sooruzhenie`
+--
+ALTER TABLE `Sportivnoe_sooruzhenie`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `Tip_ID` (`Tip_ID`);
+
+--
+-- Индексы таблицы `Sportivnye_kluby`
+--
+ALTER TABLE `Sportivnye_kluby`
+  ADD PRIMARY KEY (`ID_sportivnogo_kluba`),
+  ADD UNIQUE KEY `Nazvanie` (`Nazvanie`);
+
+--
+-- Индексы таблицы `Sportsmeny`
+--
+ALTER TABLE `Sportsmeny`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `ID_sportivnogo_kluba` (`ID_sportivnogo_kluba`);
+
+--
+-- Индексы таблицы `Sportsmeny_log`
+--
+ALTER TABLE `Sportsmeny_log`
+  ADD PRIMARY KEY (`ID_log`);
+
+--
+-- Индексы таблицы `Tip_sooruzheniya`
+--
+ALTER TABLE `Tip_sooruzheniya`
+  ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `Nazvanie` (`Nazvanie`);
+
+--
+-- Индексы таблицы `Trenery`
+--
+ALTER TABLE `Trenery`
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `Vid_sporta_ID` (`Vid_sporta_ID`);
+
+--
+-- Индексы таблицы `Trenirovki`
+--
+ALTER TABLE `Trenirovki`
+  ADD PRIMARY KEY (`ID_trenirovki`),
+  ADD KEY `ID_trenera` (`ID_trenera`),
+  ADD KEY `ID_sportsmena` (`ID_sportsmena`),
+  ADD KEY `ID_vida_sporta` (`ID_vida_sporta`);
+
+--
+-- Индексы таблицы `Vidy_sporta`
+--
+ALTER TABLE `Vidy_sporta`
+  ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `Nazvanie` (`Nazvanie`);
+
+--
+-- AUTO_INCREMENT для сохранённых таблиц
 --
 
-/*!50001 DROP VIEW IF EXISTS `view_trenery_po_vidu`*/;
-/*!50001 SET @saved_cs_client          = @@character_set_client */;
-/*!50001 SET @saved_cs_results         = @@character_set_results */;
-/*!50001 SET @saved_col_connection     = @@collation_connection */;
-/*!50001 SET character_set_client      = utf8mb4 */;
-/*!50001 SET character_set_results     = utf8mb4 */;
-/*!50001 SET collation_connection      = utf8mb4_unicode_ci */;
-/*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`%` SQL SECURITY DEFINER */
-/*!50001 VIEW `view_trenery_po_vidu` AS select `tr`.`FIO` AS `FIO`,`v`.`Nazvanie` AS `Nazvanie` from (`trenery` `tr` join `vidy_sporta` `v` on((`tr`.`Vid_sporta_ID` = `v`.`ID`))) */;
-/*!50001 SET character_set_client      = @saved_cs_client */;
-/*!50001 SET character_set_results     = @saved_cs_results */;
-/*!50001 SET collation_connection      = @saved_col_connection */;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+--
+-- AUTO_INCREMENT для таблицы `Nagrazhdenie`
+--
+ALTER TABLE `Nagrazhdenie`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+--
+-- AUTO_INCREMENT для таблицы `Organizatory_sorevnovaniy`
+--
+ALTER TABLE `Organizatory_sorevnovaniy`
+  MODIFY `ID_organizatora_sorevnovaniy` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT для таблицы `Rezultaty_uchastiya`
+--
+ALTER TABLE `Rezultaty_uchastiya`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT для таблицы `Sostyazaniya`
+--
+ALTER TABLE `Sostyazaniya`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT для таблицы `Sportivnoe_sooruzhenie`
+--
+ALTER TABLE `Sportivnoe_sooruzhenie`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT для таблицы `Sportivnye_kluby`
+--
+ALTER TABLE `Sportivnye_kluby`
+  MODIFY `ID_sportivnogo_kluba` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT для таблицы `Sportsmeny`
+--
+ALTER TABLE `Sportsmeny`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT для таблицы `Sportsmeny_log`
+--
+ALTER TABLE `Sportsmeny_log`
+  MODIFY `ID_log` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT для таблицы `Tip_sooruzheniya`
+--
+ALTER TABLE `Tip_sooruzheniya`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT для таблицы `Trenery`
+--
+ALTER TABLE `Trenery`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT для таблицы `Trenirovki`
+--
+ALTER TABLE `Trenirovki`
+  MODIFY `ID_trenirovki` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT для таблицы `Vidy_sporta`
+--
+ALTER TABLE `Vidy_sporta`
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- Ограничения внешнего ключа сохраненных таблиц
+--
+
+--
+-- Ограничения внешнего ключа таблицы `Nagrazhdenie`
+--
+ALTER TABLE `Nagrazhdenie`
+  ADD CONSTRAINT `nagrazhdenie_ibfk_1` FOREIGN KEY (`ID_rezultata`) REFERENCES `Rezultaty_uchastiya` (`ID`) ON DELETE CASCADE;
+
+--
+-- Ограничения внешнего ключа таблицы `Rezultaty_uchastiya`
+--
+ALTER TABLE `Rezultaty_uchastiya`
+  ADD CONSTRAINT `rezultaty_uchastiya_ibfk_1` FOREIGN KEY (`ID_sostyazaniya`) REFERENCES `Sostyazaniya` (`ID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `rezultaty_uchastiya_ibfk_2` FOREIGN KEY (`ID_sportsmena`) REFERENCES `Sportsmeny` (`ID`) ON DELETE CASCADE;
+
+--
+-- Ограничения внешнего ключа таблицы `Sostyazaniya`
+--
+ALTER TABLE `Sostyazaniya`
+  ADD CONSTRAINT `sostyazaniya_ibfk_1` FOREIGN KEY (`Vid_sporta_ID`) REFERENCES `Vidy_sporta` (`ID`),
+  ADD CONSTRAINT `sostyazaniya_ibfk_2` FOREIGN KEY (`Sportivnoe_sooruzhenie_ID`) REFERENCES `Sportivnoe_sooruzhenie` (`ID`),
+  ADD CONSTRAINT `sostyazaniya_ibfk_3` FOREIGN KEY (`ID_Organizatory_sorevnovaniy`) REFERENCES `Organizatory_sorevnovaniy` (`ID_organizatora_sorevnovaniy`);
+
+--
+-- Ограничения внешнего ключа таблицы `Sportivnoe_sooruzhenie`
+--
+ALTER TABLE `Sportivnoe_sooruzhenie`
+  ADD CONSTRAINT `sportivnoe_sooruzhenie_ibfk_1` FOREIGN KEY (`Tip_ID`) REFERENCES `Tip_sooruzheniya` (`ID`) ON DELETE SET NULL;
+
+--
+-- Ограничения внешнего ключа таблицы `Sportsmeny`
+--
+ALTER TABLE `Sportsmeny`
+  ADD CONSTRAINT `sportsmeny_ibfk_1` FOREIGN KEY (`ID_sportivnogo_kluba`) REFERENCES `Sportivnye_kluby` (`ID_sportivnogo_kluba`) ON DELETE SET NULL;
+
+--
+-- Ограничения внешнего ключа таблицы `Trenery`
+--
+ALTER TABLE `Trenery`
+  ADD CONSTRAINT `trenery_ibfk_1` FOREIGN KEY (`Vid_sporta_ID`) REFERENCES `Vidy_sporta` (`ID`) ON DELETE SET NULL;
+
+--
+-- Ограничения внешнего ключа таблицы `Trenirovki`
+--
+ALTER TABLE `Trenirovki`
+  ADD CONSTRAINT `trenirovki_ibfk_1` FOREIGN KEY (`ID_trenera`) REFERENCES `Trenery` (`ID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `trenirovki_ibfk_2` FOREIGN KEY (`ID_sportsmena`) REFERENCES `Sportsmeny` (`ID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `trenirovki_ibfk_3` FOREIGN KEY (`ID_vida_sporta`) REFERENCES `Vidy_sporta` (`ID`) ON DELETE CASCADE;
+COMMIT;
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2026-02-12 10:57:27
